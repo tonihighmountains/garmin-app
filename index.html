@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Actividades">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Actividades</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --bg:#ffffff; --text:#111; --muted:#5f6368; --line:#e8e8ea; --field:#fff; --fieldline:#dcdce0;
+  --run:#16a34a; --runbg:#e9f7ee; --bike:#1d4ed8; --bikebg:#ecf1fd; --other:#6b7280; --otherbg:#f1f2f4;
+  --blue:#0b4fd8; --red:#dc2626; --sheet:#fff; --dim:rgba(0,0,0,.35);
+  --st:env(safe-area-inset-top); --sb:env(safe-area-inset-bottom);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+.view{min-height:100vh}
+
+/* cabecera */
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:calc(var(--st) + 6px) 16px 8px;display:grid;grid-template-columns:44px 1fr 44px;align-items:center}
+.top h1{margin:0;text-align:center;font-size:20px;font-weight:600;letter-spacing:-.2px}
+.ib{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;position:relative}
+.ib:active{background:#f1f1f3}
+.ib svg{width:26px;height:26px}
+.dot{position:absolute;top:9px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.sub{padding:0 20px 6px;font-size:13px;color:var(--muted);text-align:center;min-height:18px}
+
+/* lista */
+.list{padding:0 16px calc(var(--sb) + 24px)}
+.row{display:grid;grid-template-columns:48px 1fr 16px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.row:active{background:#fafafa}
+.tile{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.tile svg{width:30px;height:30px}
+.t-run{background:var(--runbg);color:var(--run)} .t-bike{background:var(--bikebg);color:var(--bike)} .t-other{background:var(--otherbg);color:var(--other)}
+.rname{font-size:17px;font-weight:600;margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.2px}
+.rmeta{display:grid;grid-template-columns:44.5% 20% 18% 17.5%;overflow:hidden;font-size:min(2.85vw,14.5px);color:#4a4d52;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.1px}
+.rmeta span{overflow:hidden}
+.rmeta i{font-style:normal}
+@media (max-width:370px){.rmeta i.tm{display:none}}
+.chev{color:#5f6368;width:18px;height:18px}
+.pend{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:6px;vertical-align:middle}
+.empty{padding:60px 24px;text-align:center;color:var(--muted)}
+#sentinel{height:40px}
+.more{padding:14px;text-align:center;color:var(--muted);font-size:13px}
+
+/* detalle */
+.dwrap{padding:4px 20px calc(var(--sb) + 24px)}
+.typeline{display:flex;align-items:center;gap:12px;margin:6px 0 14px;color:#444;font-size:15px}
+.typeline .tile{width:38px;height:38px;border-radius:10px}
+.typeline .tile svg{width:24px;height:24px}
+.field{border:1px solid var(--fieldline);border-radius:12px;background:var(--field)}
+.namebox{display:flex;align-items:center;padding:0 14px 0 18px;height:64px}
+.namebox input{flex:1;border:0;outline:0;font-size:21px;background:transparent;min-width:0;letter-spacing:-.2px}
+.namebox button{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.dateline{display:flex;align-items:center;gap:12px;margin:18px 2px 10px;font-size:16px}
+.dateline svg{width:22px;height:22px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);margin:0 0 14px}
+.stat{text-align:center;padding:14px 4px}
+.stat b{display:block;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.stat small{display:block;color:var(--muted);font-size:13.5px;margin-top:3px}
+.stat:nth-child(-n+3){border-bottom:1px solid var(--line)}
+.stat:not(:nth-child(3n)){border-right:1px solid var(--line)}
+.mapbox{position:relative;height:245px;border-radius:12px;overflow:hidden;background:#cfe3c2}
+#map{position:absolute;inset:0}
+.mapmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#3c5a35;font-size:14px;z-index:500;pointer-events:none}
+.expand{position:absolute;top:10px;right:10px;z-index:600;width:38px;height:38px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.expand svg{width:20px;height:20px}
+.mapbox.full{position:fixed;inset:0;height:auto;border-radius:0;z-index:100}
+.mapbox.full .expand{top:calc(var(--st) + 10px)}
+.lbl{font-size:15px;font-weight:600;margin:22px 0 9px}
+.gearbox{position:relative;display:flex;align-items:center;height:60px;padding:0 14px}
+.gearbox .gi{width:40px;height:40px;border-radius:9px;background:#f2f4f7;display:flex;align-items:center;justify-content:center;margin-right:12px;flex:none}
+.gearbox .gi svg{width:26px;height:26px}
+.gearbox .gname{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gearbox select{position:absolute;inset:0;opacity:0;width:100%;font-size:16px}
+.gearbox .dd{width:22px;height:22px}
+textarea.notes{width:100%;min-height:80px;padding:14px 16px;border:1px solid var(--fieldline);border-radius:12px;resize:vertical;outline:0;font-size:16px}
+textarea.notes::placeholder{color:#8a8d92}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:34px}
+.btn{height:58px;border-radius:12px;font-size:17px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn svg{width:22px;height:22px}
+.btn-del{border:1px solid #d9d9de;color:var(--red)}
+.btn-save{background:var(--blue);color:#fff}
+.btn-save:disabled{opacity:.45}
+.btn:active{transform:scale(.98)}
+.syncnote{margin-top:14px;text-align:center;font-size:13px;color:var(--muted)}
+
+/* hojas */
+.dim{position:fixed;inset:0;background:var(--dim);z-index:200;opacity:0;transition:opacity .2s}
+.dim.on{opacity:1}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:210;background:var(--sheet);border-radius:18px 18px 0 0;
+  padding:10px 20px calc(var(--sb) + 20px);transform:translateY(100%);transition:transform .25s ease;max-height:88vh;overflow:auto}
+.sheet.on{transform:none}
+.grab{width:38px;height:5px;border-radius:3px;background:#d7d7db;margin:0 auto 14px}
+.sheet h2{font-size:19px;margin:0 0 16px;font-weight:600}
+.seg{display:flex;background:#f0f0f3;border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;height:36px;border-radius:8px;font-size:15px;color:#333}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:18px;border:1px solid var(--fieldline);font-size:14.5px}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.inp{width:100%;height:48px;border:1px solid var(--fieldline);border-radius:12px;padding:0 14px;font-size:16px;outline:0;background:#fff}
+.sel{width:100%;height:48px;border:1px solid var(--fieldline);border-radius:12px;padding:0 12px;font-size:16px;background:#fff;-webkit-appearance:none;appearance:none}
+.menuitem{display:flex;align-items:center;gap:14px;width:100%;padding:15px 4px;border-bottom:1px solid var(--line);font-size:17px;text-align:left}
+.menuitem svg{width:22px;height:22px;color:#444}
+.menuitem.red{color:var(--red)} .menuitem.red svg{color:var(--red)}
+.hint{font-size:13px;color:var(--muted);line-height:1.45;margin:8px 0 0}
+.row2{display:flex;gap:12px;margin-top:22px}
+.row2 .btn{flex:1;height:50px}
+.btn-ghost{border:1px solid #d9d9de}
+
+/* aviso */
+#toast{position:fixed;left:50%;bottom:calc(var(--sb) + 24px);transform:translateX(-50%) translateY(20px);z-index:400;background:#1f2023;color:#fff;
+  padding:12px 18px;border-radius:12px;font-size:14.5px;opacity:0;transition:all .25s;max-width:calc(100% - 32px);text-align:center;pointer-events:none}
+#toast.on{opacity:1;transform:translateX(-50%)}
+
+/* configuración inicial */
+.setup{padding:calc(var(--st) + 40px) 24px 40px;max-width:520px;margin:0 auto}
+.setup h1{font-size:28px;margin:0 0 8px;letter-spacing:-.4px}
+.setup p{color:var(--muted);line-height:1.5}
+.setup label{display:block;font-weight:600;font-size:14px;margin:18px 0 6px}
+.setup .btn{width:100%;margin-top:22px}
+.link{color:var(--blue);text-decoration:none;font-size:15px}
+.spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.leaflet-container{font:inherit}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.6)!important}
+</style>
+</head>
+<body>
+
+<!-- ======================= CONFIGURACIÓN ======================= -->
+<section id="vSetup" class="view hidden">
+  <div class="setup">
+    <h1>Actividades</h1>
+    <p>Conecta la app con tu repositorio privado de GitHub donde se sincronizan tus actividades de Garmin.</p>
+    <label for="cfOwner">Usuario de GitHub</label>
+    <input id="cfOwner" class="inp" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="tu-usuario">
+    <label for="cfRepo">Repositorio de datos</label>
+    <input id="cfRepo" class="inp" autocapitalize="none" autocorrect="off" spellcheck="false" value="garmin-datos">
+    <label for="cfToken">Token de acceso (fine-grained)</label>
+    <input id="cfToken" class="inp" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="github_pat_…">
+    <p class="hint">El token se guarda solo en este iPhone. Permisos necesarios sobre el repositorio de datos: <b>Contents: Read</b> y <b>Actions: Read and write</b>.</p>
+    <button id="cfSave" class="btn btn-save">Conectar</button>
+    <button id="cfDemo" class="btn btn-ghost">Probar con datos de ejemplo</button>
+    <p id="cfMsg" class="hint"></p>
+  </div>
+</section>
+
+<!-- ======================= LISTA ======================= -->
+<section id="vList" class="view hidden">
+  <header class="top">
+    <button class="ib" id="bMenu" aria-label="Menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6h17M3.5 12h17M3.5 18h17"/></svg></button>
+    <h1>Actividades</h1>
+    <button class="ib" id="bFilter" aria-label="Filtrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6.5h17M7 12h10M10.5 17.5h3"/></svg><span id="fDot" class="dot hidden"></span></button>
+  </header>
+  <div class="sub" id="subline"></div>
+  <div class="list" id="list"></div>
+  <div id="sentinel"></div>
+</section>
+
+<!-- ======================= DETALLE ======================= -->
+<section id="vDetail" class="view hidden">
+  <header class="top">
+    <button class="ib" id="bBack" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5 7.5 12l7.5 7.5"/></svg></button>
+    <h1>Actividad</h1>
+    <button class="ib" id="bMore" aria-label="Más"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+  </header>
+  <div class="dwrap">
+    <div class="typeline"><div class="tile" id="dTile"></div><span id="dType"></span></div>
+    <div class="field namebox">
+      <input id="dName" maxlength="120" enterkeyhint="done" autocomplete="off">
+      <button id="bPencil" aria-label="Editar nombre"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>
+    </div>
+    <div class="dateline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2" stroke-linecap="round"/></svg><span id="dDate"></span></div>
+    <div class="stats" id="dStats"></div>
+    <div class="mapbox" id="mapbox">
+      <div id="map"></div>
+      <div class="mapmsg" id="mapmsg"></div>
+      <button class="expand" id="bExpand" aria-label="Ampliar mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg></button>
+    </div>
+    <div class="lbl">Equipo</div>
+    <div class="field gearbox">
+      <div class="gi" id="gIcon"></div>
+      <div class="gname" id="gName"></div>
+      <svg class="dd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      <select id="dGear" aria-label="Equipo"></select>
+    </div>
+    <div class="lbl">Notas</div>
+    <textarea id="dNotes" class="notes" placeholder="Añade una nota (opcional)"></textarea>
+    <div class="btns">
+      <button class="btn btn-del" id="bDelete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Eliminar</button>
+      <button class="btn btn-save" id="bSave">Guardar</button>
+    </div>
+    <div class="syncnote" id="dNote"></div>
+  </div>
+</section>
+
+<!-- ======================= HOJAS ======================= -->
+<div class="dim hidden" id="dim"></div>
+
+<div class="sheet hidden" id="sFilter">
+  <div class="grab"></div>
+  <h2>Filtrar</h2>
+  <div class="seg" id="fType">
+    <button data-v="all" class="on">Todas</button><button data-v="run">Trail / carrera</button><button data-v="bike">Bici</button>
+  </div>
+  <div class="lbl">Año</div>
+  <div class="chips" id="fYears"></div>
+  <div class="lbl">Equipo</div>
+  <select class="sel" id="fGear"></select>
+  <div class="lbl">Buscar por nombre</div>
+  <input class="inp" id="fText" placeholder="Ej.: Calderona" autocomplete="off" enterkeyhint="search">
+  <div class="row2">
+    <button class="btn btn-ghost" id="fClear">Quitar filtros</button>
+    <button class="btn btn-save" id="fApply">Ver</button>
+  </div>
+</div>
+
+<div class="sheet hidden" id="sMenu">
+  <div class="grab"></div>
+  <button class="menuitem" id="mSync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg>Actualizar desde Garmin</button>
+  <button class="menuitem" id="mSummary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span id="mSumTxt">Resumen</span></button>
+  <button class="menuitem" id="mSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes de conexión</button>
+  <p class="hint" id="mInfo"></p>
+</div>
+
+<div class="sheet hidden" id="sMore">
+  <div class="grab"></div>
+  <button class="menuitem" id="oGarmin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Abrir en Garmin Connect</button>
+  <button class="menuitem" id="oReload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Descartar cambios sin guardar</button>
+</div>
+
+<div class="sheet hidden" id="sConfirm">
+  <div class="grab"></div>
+  <h2>¿Eliminar actividad?</h2>
+  <p class="hint" style="font-size:15px">Se borrará <b id="cName"></b> también de Garmin Connect. No se puede deshacer.</p>
+  <div class="row2">
+    <button class="btn btn-ghost" id="cNo">Cancelar</button>
+    <button class="btn btn-save" style="background:var(--red)" id="cYes">Eliminar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+/* ================================================================
+   Iconos
+================================================================ */
+const IC = {
+  run:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9 1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>',
+  bike:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5zm5.8-10 2.4-2.4.8.8c1.3 1.3 3 2.1 5.1 2.1V9c-1.5 0-2.7-.6-3.6-1.5l-1.9-1.9c-.5-.4-1-.6-1.6-.6s-1.1.2-1.4.6L7.8 8.4c-.4.4-.6.9-.6 1.4 0 .6.2 1.1.6 1.4L11 14v5h2v-6.2l-2.2-2.3zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>',
+  other:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
+  shoe:'<svg viewBox="0 0 32 32"><path d="M3 21.5c0-2 .6-4.6 1.6-7 .4-1 1.6-1.3 2.4-.7 1.5 1.1 3.6 1.3 5 .1l1.2-1c.6-.5 1.5-.4 2 .2l2.3 2.6c1 1.1 2.4 1.8 3.9 2l4.6.6c2 .3 3.4 1.9 3.4 3.9v.8c0 .6-.5 1-1 1H4c-.6 0-1-.5-1-1z" fill="#2f7fe0"/><path d="M3 22.5h26.4c0 1.4-1.1 2.5-2.5 2.5H5.5C4.1 25 3 23.9 3 22.5z" fill="#1b3d6e"/><path d="M14.6 15.2l-1.8 1.6M16.3 17.1l-1.8 1.6" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  bikeg:'<svg viewBox="0 0 24 24" fill="#1d4ed8"><path d="M5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5S3.1 13.5 5 13.5s3.5 1.6 3.5 3.5S6.9 20.5 5 20.5zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5zM12.4 6l1.3 3H9.2l-.6-1.2H10V6H6v1.8h.6L8.3 11 5.2 16.6l1.5.8 2.6-4.8 2.3 4.8h1.9L15 11.3l2.7 5.3 1.5-.8-3.4-6.7L14.4 6z"/></svg>',
+  none:'<svg viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5l11-11"/></svg>',
+  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>'
+};
+
+/* ================================================================
+   Tipos de actividad
+================================================================ */
+const TYPE_ES = {
+  trail_running:'Trail Running', running:'Carrera', street_running:'Carrera', track_running:'Pista',
+  treadmill_running:'Cinta', ultra_run:'Ultra', virtual_run:'Carrera virtual', hiking:'Senderismo', walking:'Caminata',
+  mountaineering:'Montañismo', cycling:'Ciclismo', road_biking:'Ciclismo en carretera', mountain_biking:'Ciclismo de montaña',
+  gravel_cycling:'Gravel', indoor_cycling:'Ciclismo indoor', virtual_ride:'Ciclismo virtual', e_bike_mountain:'E-MTB',
+  e_bike_fitness:'E-bike', cyclocross:'Ciclocrós', downhill_biking:'Descenso', bmx:'BMX'
+};
+function kindOf(t){
+  t = t || '';
+  if (/run|hik|walk|mountaineer/.test(t)) return 'run';
+  if (/bik|cycl|ride|bmx|cyclocross/.test(t)) return 'bike';
+  return 'other';
+}
+const typeLabel = t => TYPE_ES[t] || (t||'Actividad').replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
+
+/* ================================================================
+   Formatos (es-ES)
+================================================================ */
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const thousands = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const dec = (n,d) => n.toFixed(d).replace('.',',');
+function fKm(m){ return m==null ? '–' : dec(m/1000,2); }
+function fDur(s){ if(s==null) return '–'; s=Math.round(s); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return h+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); }
+function fDate(iso, sep){ if(!iso) return ''; const [d,t]=iso.split('T'); const [y,mo,da]=d.split('-');
+  return (+da)+' '+MES[+mo-1]+' '+y+(sep||' - ')+(t||'').slice(0,5); }
+function fPace(a){ if(!a.dist||!a.dur) return '–'; const spk=a.dur/(a.dist/1000); const m=Math.floor(spk/60), s=Math.round(spk%60);
+  return s===60 ? (m+1)+':00' : m+':'+String(s).padStart(2,'0'); }
+function fSpeed(a){ if(!a.dist||!a.dur) return '–'; return dec(a.dist/1000/(a.dur/3600),1); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function ago(iso){ if(!iso) return ''; const m=Math.round((Date.now()-new Date(iso))/60000);
+  if(m<1) return 'ahora mismo'; if(m<60) return 'hace '+m+' min'; const h=Math.round(m/60); if(h<48) return 'hace '+h+' h'; return 'hace '+Math.round(h/24)+' días'; }
+
+/* ================================================================
+   Almacenamiento local (con try/catch: iOS puede bloquearlo)
+================================================================ */
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+/* ================================================================
+   Estado
+================================================================ */
+const S = {
+  cfg: LS.get('gc_cfg', null),
+  acts: [], gear: [], status: {}, pending: LS.get('gc_pending', {}),
+  filtered: [], shown: 0, PAGE: 10,
+  filter: LS.get('gc_filter', {type:'all', year:'all', gear:'all', text:''}),
+  cur: null, tracks: {}, demo: false
+};
+const $ = id => document.getElementById(id);
+
+/* ================================================================
+   GitHub
+================================================================ */
+async function gh(path, opt={}){
+  const c=S.cfg;
+  const res = await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/${path}`, {
+    method: opt.method||'GET', cache:'no-store',
+    headers: {'Authorization':'Bearer '+c.token, 'Accept': opt.raw?'application/vnd.github.raw+json':'application/vnd.github+json',
+      'X-GitHub-Api-Version':'2022-11-28', ...(opt.body?{'Content-Type':'application/json'}:{})},
+    body: opt.body ? JSON.stringify(opt.body) : undefined
+  });
+  if(!res.ok){ const t=await res.text().catch(()=> ''); const e=new Error('GitHub '+res.status+': '+t.slice(0,140)); e.status=res.status; throw e; }
+  if(res.status===204) return null;
+  return opt.raw ? res.json() : res.json();
+}
+const readFile = p => gh('contents/'+p+'?ref=main', {raw:true});
+const dispatch = (wf, inputs) => gh(`actions/workflows/${wf}/dispatches`, {method:'POST', body:{ref:'main', inputs}});
+
+/* ================================================================
+   Carga de datos
+================================================================ */
+async function loadData(quiet){
+  if(S.demo) return;
+  try{
+    const [acts, gear, status] = await Promise.all([readFile('data/activities.json'), readFile('data/gear.json'), readFile('data/status.json').catch(()=>({}))]);
+    S.acts = acts||[]; S.gear = gear||[]; S.status = status||{};
+    LS.set('gc_data', {acts:S.acts, gear:S.gear, status:S.status});
+    reconcilePending();
+    applyFilter(true);
+    if(!S.cur) renderSub();
+  }catch(e){
+    if(!quiet) toast(e.status===401||e.status===404 ? 'No puedo leer el repositorio: revisa los ajustes' : 'Sin conexión: muestro la última copia');
+    renderSub(true);
+  }
+}
+function reconcilePending(){
+  let changed=false;
+  const le = S.status.lastEdit;
+  for(const [id,p] of Object.entries(S.pending)){
+    const a = S.acts.find(x=>String(x.id)===id);
+    const age = Date.now()-p.ts;
+    if(p.delete){ if(!a){ delete S.pending[id]; changed=true; } }
+    else if(a && (p.name==null||a.name===p.name) && (p.notes==null||a.notes===p.notes) &&
+            (p.gear==null || (p.gear==='none' ? !gearOfKind(a).length : a.gear.includes(p.gear)))){
+      delete S.pending[id]; changed=true;
+    }
+    if(le && String(le.id)===id && !le.ok && new Date(le.at).getTime()>p.ts-5000){
+      toast('Garmin rechazó el cambio: '+(le.error||'error')); delete S.pending[id]; changed=true;
+    } else if(S.pending[id] && age>20*60000){ delete S.pending[id]; changed=true; }
+  }
+  if(changed) LS.set('gc_pending', S.pending);
+}
+function withPending(a){
+  const p=S.pending[a.id]; if(!p) return a;
+  const o={...a, _pending:true};
+  if(p.name!=null) o.name=p.name;
+  if(p.notes!=null) o.notes=p.notes;
+  if(p.gear!=null){ const others=a.gear.filter(u=>{const g=gearBy(u); return g && kindMatch(g, kindOf(a.type))===false;}); o.gear = p.gear==='none'?others:[...others,p.gear]; }
+  return o;
+}
+const gearBy = u => S.gear.find(g=>g.uuid===u);
+function kindMatch(g, k){ const n=(g.kind||''); if(k==='run') return /shoe/.test(n); if(k==='bike') return /bike|bicy/.test(n); return true; }
+function gearOfKind(a){ const k=kindOf(a.type); return (a.gear||[]).map(gearBy).filter(g=>g && kindMatch(g,k)); }
+
+/* ================================================================
+   Lista con carga de 10 en 10
+================================================================ */
+function visibleActs(){ return S.acts.filter(a=>!(S.pending[a.id]&&S.pending[a.id].delete)).map(withPending); }
+function applyFilter(keepScroll){
+  const f=S.filter, txt=f.text.trim().toLowerCase();
+  S.filtered = visibleActs().filter(a=>{
+    if(f.type!=='all' && kindOf(a.type)!==f.type) return false;
+    if(f.year!=='all' && !a.start.startsWith(f.year)) return false;
+    if(f.gear!=='all' && !(a.gear||[]).includes(f.gear)) return false;
+    if(txt && !a.name.toLowerCase().includes(txt)) return false;
+    return true;
+  });
+  const keep = keepScroll ? Math.max(S.shown, S.PAGE) : S.PAGE;
+  S.shown = 0; $('list').innerHTML='';
+  renderMore(keep);
+  requestAnimationFrame(checkMore);
+  $('fDot').classList.toggle('hidden', f.type==='all'&&f.year==='all'&&f.gear==='all'&&!txt);
+}
+function rowHTML(a){
+  const k=kindOf(a.type);
+  return `<button class="row" data-id="${a.id}">
+    <div class="tile t-${k}">${IC[k]}</div>
+    <div style="min-width:0"><p class="rname">${esc(a.name)||'Sin nombre'}${a._pending?'<span class="pend" title="Enviando a Garmin"></span>':''}</p>
+      <div class="rmeta"><span>${fDate(a.start).replace(/ - (.*)$/,'<i class="tm"> - $1</i>')}</span><span>${fKm(a.dist)} km</span><span>${fDur(a.dur)}</span><span>${a.elev!=null?thousands(a.elev)+' m':''}</span></div></div>
+    ${IC.chev}</button>`;
+}
+function renderMore(n){
+  n = n||S.PAGE;
+  const slice = S.filtered.slice(S.shown, S.shown+n);
+  $('list').insertAdjacentHTML('beforeend', slice.map(rowHTML).join(''));
+  S.shown += slice.length;
+  const old=$('list').querySelector('.more,.empty'); if(old) old.remove();
+  if(!S.filtered.length) $('list').insertAdjacentHTML('beforeend','<div class="empty">'+(S.acts.length?'No hay actividades con estos filtros':'Aún no hay actividades. Pulsa ☰ › Actualizar desde Garmin.')+'</div>');
+  else if(S.shown>=S.filtered.length) $('list').insertAdjacentHTML('beforeend',`<div class="more">${S.filtered.length} actividades</div>`);
+}
+/* al acercarse al final se añaden 10 más; se repite mientras el final siga a la vista */
+let moreQueued=false;
+function checkMore(){
+  if(moreQueued || $('vList').classList.contains('hidden') || S.shown>=S.filtered.length) return;
+  if($('sentinel').getBoundingClientRect().top < innerHeight+300){
+    renderMore(); moreQueued=true; requestAnimationFrame(()=>{ moreQueued=false; checkMore(); });
+  }
+}
+new IntersectionObserver(()=>checkMore(),{rootMargin:'300px'}).observe($('sentinel'));
+window.addEventListener('scroll', checkMore, {passive:true});
+$('list').addEventListener('click', e=>{ const r=e.target.closest('.row'); if(r) openDetail(+r.dataset.id); });
+
+function renderSub(offline){
+  const st=S.status||{};
+  let t = S.demo ? 'Datos de ejemplo' : (st.lastSync ? 'Sincronizado '+ago(st.lastSync) : '');
+  if(st.ok===false && st.error) t = '⚠︎ Último intento con error';
+  if(offline) t += (t?' · ':'')+'sin conexión';
+  $('subline').textContent=t;
+}
+
+/* ================================================================
+   Detalle
+================================================================ */
+let map=null, line=null, marks=[];
+function openDetail(id){
+  const a0=S.acts.find(x=>x.id===id); if(!a0) return;
+  const a=withPending(a0); S.cur=a;
+  S.listScroll = window.scrollY;
+  const k=kindOf(a.type);
+  $('dTile').className='tile t-'+k; $('dTile').innerHTML=IC[k];
+  $('dType').textContent=typeLabel(a.type);
+  $('dName').value=a.name;
+  $('dDate').textContent=fDate(a.start, ', ');
+  const st = [
+    [fKm(a.dist),'km'],[fDur(a.dur),'h:m:s'],[a.elev!=null?thousands(a.elev):'–','m'],
+    k==='bike' ? [fSpeed(a),'km/h'] : [fPace(a),'min/km'],
+    [a.hr?a.hr:'–','ppm'],[a.cal!=null?thousands(a.cal):'–','kcal']];
+  $('dStats').innerHTML = st.map(([v,u])=>`<div class="stat"><b>${v}</b><small>${u}</small></div>`).join('');
+  $('dNotes').value=a.notes||'';
+  fillGear(a);
+  $('dNote').textContent = a._pending ? 'Cambio enviado. Garmin lo aplicará en 1-2 minutos.' : '';
+  show('vDetail'); window.scrollTo(0,0);
+  updateSave();
+  drawMap(a);
+  history.pushState({d:id},'');
+}
+function fillGear(a){
+  const k=kindOf(a.type);
+  const list = S.gear.filter(g=>kindMatch(g,k));
+  const cur = gearOfKind(a)[0];
+  const act = list.filter(g=>g.active), ret = list.filter(g=>!g.active);
+  let h = `<option value="none">Sin equipo</option>` + act.map(g=>`<option value="${g.uuid}">${esc(g.name)}</option>`).join('');
+  if(ret.length) h += `<optgroup label="Retirado">`+ret.map(g=>`<option value="${g.uuid}">${esc(g.name)}</option>`).join('')+`</optgroup>`;
+  $('dGear').innerHTML=h;
+  $('dGear').value = cur ? cur.uuid : 'none';
+  S.curGear = $('dGear').value;
+  gearLabel();
+}
+function gearLabel(){
+  const g=gearBy($('dGear').value);
+  $('gName').textContent = g ? g.name : 'Sin equipo';
+  $('gIcon').innerHTML = !g ? IC.none : (/bike|bicy/.test(g.kind) ? IC.bikeg : IC.shoe);
+}
+function dirty(){ const a=S.cur; if(!a) return false;
+  return $('dName').value.trim()!==a.name || $('dNotes').value!==(a.notes||'') || $('dGear').value!==S.curGear; }
+function updateSave(){ $('bSave').disabled=!dirty(); }
+['input','change'].forEach(ev=>{ $('dName').addEventListener(ev,updateSave); $('dNotes').addEventListener(ev,updateSave); });
+$('dGear').addEventListener('change',()=>{ gearLabel(); updateSave(); });
+$('bPencil').onclick=()=>{ const i=$('dName'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); };
+$('dName').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
+
+function drawMap(a){
+  const mb=$('mapbox'); mb.classList.remove('full');
+  if(typeof L==='undefined'){ $('mapmsg').textContent='Mapa no disponible sin conexión'; return; }
+  if(!map){
+    map=L.map('map',{zoomControl:false,attributionControl:true});
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc',
+      attribution:'© OpenStreetMap · © OpenTopoMap'}).addTo(map);
+  }
+  if(line){ line.remove(); line=null; } marks.forEach(m=>m.remove()); marks=[];
+  $('mapmsg').textContent='';
+  map.setView([39.6,-0.6],9);
+  setTimeout(()=>map.invalidateSize(),50);
+  if(!a.gps){ $('mapmsg').textContent='Actividad sin GPS'; return; }
+  getTrack(a.id).then(pts=>{
+    if(S.cur?.id!==a.id) return;
+    if(!pts||pts.length<2){ $('mapmsg').textContent='Recorrido aún no descargado'; return; }
+    line=L.polyline(pts,{color:'#e11d2a',weight:3.5,opacity:.95}).addTo(map);
+    const st=L.circleMarker(pts[0],{radius:7,color:'#fff',weight:2.5,fillColor:'#16a34a',fillOpacity:1}).addTo(map);
+    const en=L.circleMarker(pts[pts.length-1],{radius:6,color:'#fff',weight:2.5,fillColor:'#e11d2a',fillOpacity:1}).addTo(map);
+    marks=[st,en];
+    map.fitBounds(line.getBounds(),{padding:[22,22]});
+  }).catch(()=>{ $('mapmsg').textContent='No se pudo cargar el recorrido'; });
+}
+async function getTrack(id){
+  if(S.tracks[id]) return S.tracks[id];
+  if(S.demo) return (S.tracks[id]=demoTrack(id));
+  const p = await readFile('data/tracks/'+id+'.json');
+  S.tracks[id]=p; return p;
+}
+$('bExpand').onclick=()=>{ $('mapbox').classList.toggle('full'); setTimeout(()=>{ map.invalidateSize(); if(line) map.fitBounds(line.getBounds(),{padding:[30,30]}); },60); };
+
+/* Guardar / eliminar */
+$('bSave').onclick=async()=>{
+  const a=S.cur; if(!a||!dirty()) return;
+  const req={id:a.id};
+  const nm=$('dName').value.trim();
+  if(nm!==a.name){ if(!nm){ toast('El nombre no puede estar vacío'); return; } req.name=nm; }
+  if($('dNotes').value!==(a.notes||'')) req.notes=$('dNotes').value;
+  if($('dGear').value!==S.curGear) req.gear=$('dGear').value;
+  await send(req, 'Guardado. Se aplicará en Garmin en 1-2 min');
+};
+$('bDelete').onclick=()=>{ $('cName').textContent=S.cur?.name||''; openSheet('sConfirm'); };
+$('cNo').onclick=closeSheets;
+$('cYes').onclick=async()=>{ closeSheets(); await send({id:S.cur.id, delete:true}, 'Actividad eliminada'); };
+
+async function send(req, okMsg){
+  const btn=$('bSave'); const old=btn.innerHTML;
+  btn.innerHTML='<span class="spin"></span>'; btn.disabled=true;
+  try{
+    if(!S.demo) await dispatch('edit.yml', {id:String(req.id), payload:JSON.stringify(req)});
+    const prev=S.pending[req.id]||{};
+    S.pending[req.id]={...prev, ...req, ts:Date.now()}; delete S.pending[req.id].id;
+    if(S.demo){ demoApply(req); delete S.pending[req.id]; }
+    LS.set('gc_pending', S.pending);
+    toast(okMsg);
+    applyFilter(true);
+    if(req.delete){ goBack(); }
+    else { openDetailSilent(req.id); }
+    if(!S.demo) pollAfter(90000);
+  }catch(e){
+    toast(e.status===403||e.status===404 ? 'El token no tiene permiso de Actions (Read and write)' : 'No se pudo enviar: '+e.message);
+  }finally{ btn.innerHTML=old; updateSave(); }
+}
+function openDetailSilent(id){ const a0=S.acts.find(x=>x.id===id); if(!a0) return; const a=withPending(a0); S.cur=a; S.curGear=$('dGear').value; $('dNote').textContent=a._pending?'Cambio enviado. Garmin lo aplicará en 1-2 minutos.':''; updateSave(); }
+let pollT=null;
+function pollAfter(ms){ clearTimeout(pollT); const end=Date.now()+ms*3;
+  const tick=async()=>{ await loadData(true); if(Object.keys(S.pending).length && Date.now()<end){ pollT=setTimeout(tick,25000); } else if(S.cur){ $('dNote').textContent=''; } };
+  pollT=setTimeout(tick,ms/2); }
+
+/* ================================================================
+   Navegación y hojas
+================================================================ */
+function show(v){ ['vSetup','vList','vDetail'].forEach(x=>$(x).classList.toggle('hidden',x!==v)); }
+function goBack(){ if(history.state&&history.state.d) history.back(); else backToList(); }
+function backToList(){ S.cur=null; $('mapbox').classList.remove('full'); show('vList'); renderSub(); window.scrollTo(0,S.listScroll||0); }
+window.addEventListener('popstate',()=>{ closeSheets(); if(!$('vDetail').classList.contains('hidden')) backToList(); });
+$('bBack').onclick=()=>{ if(dirty() && !confirm('Tienes cambios sin guardar. ¿Salir igualmente?')) return; goBack(); };
+
+function openSheet(id){ closeSheets(true); const d=$('dim'), s=$(id); d.classList.remove('hidden'); s.classList.remove('hidden');
+  requestAnimationFrame(()=>{ d.classList.add('on'); s.classList.add('on'); }); }
+function closeSheets(fast){ document.querySelectorAll('.sheet.on').forEach(s=>{ s.classList.remove('on'); setTimeout(()=>s.classList.add('hidden'),fast?0:250); });
+  const d=$('dim'); d.classList.remove('on'); setTimeout(()=>{ if(!document.querySelector('.sheet.on')) d.classList.add('hidden'); },fast?0:250); }
+$('dim').onclick=()=>closeSheets();
+
+/* Filtro */
+function buildFilter(){
+  const f=S.filter;
+  document.querySelectorAll('#fType button').forEach(b=>b.classList.toggle('on',b.dataset.v===f.type));
+  const years=[...new Set(S.acts.map(a=>a.start.slice(0,4)))].sort().reverse();
+  $('fYears').innerHTML=['all',...years].map(y=>`<button class="chip ${f.year===y?'on':''}" data-v="${y}">${y==='all'?'Todos':y}</button>`).join('');
+  $('fGear').innerHTML='<option value="all">Todo el equipo</option>'+S.gear.map(g=>`<option value="${g.uuid}">${esc(g.name)}${g.active?'':' (retirado)'}</option>`).join('');
+  $('fGear').value=f.gear; $('fText').value=f.text;
+}
+$('bFilter').onclick=()=>{ buildFilter(); openSheet('sFilter'); };
+$('fType').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; S.filter.type=b.dataset.v; buildFilter(); };
+$('fYears').onclick=e=>{ const b=e.target.closest('.chip'); if(!b) return; S.filter.year=b.dataset.v; buildFilter(); };
+$('fGear').onchange=e=>{ S.filter.gear=e.target.value; };
+$('fText').oninput=e=>{ S.filter.text=e.target.value; };
+$('fText').onkeydown=e=>{ if(e.key==='Enter'){ e.target.blur(); $('fApply').click(); } };
+$('fApply').onclick=()=>{ LS.set('gc_filter',S.filter); applyFilter(); closeSheets(); window.scrollTo(0,0);
+  toast(S.filtered.length+' actividades'); };
+$('fClear').onclick=()=>{ S.filter={type:'all',year:'all',gear:'all',text:''}; buildFilter(); };
+
+/* Menú */
+$('bMenu').onclick=()=>{
+  const st=S.status||{};
+  const now=new Date(), y=String(now.getFullYear());
+  const yr=visibleActs().filter(a=>a.start.startsWith(y));
+  const km=yr.reduce((s,a)=>s+(a.dist||0),0)/1000, el=yr.reduce((s,a)=>s+(a.elev||0),0);
+  $('mSumTxt').textContent=`${y}: ${yr.length} actividades · ${thousands(km)} km · ${thousands(el)} m+`;
+  $('mInfo').innerHTML = S.demo ? 'Modo ejemplo: los cambios no se envían a Garmin.' :
+    `Repositorio: ${esc(S.cfg.owner)}/${esc(S.cfg.repo)}<br>Última sincronización: ${st.lastSync?new Date(st.lastSync).toLocaleString('es-ES'):'—'}`+
+    (st.ok===false&&st.error?`<br><span style="color:var(--red)">Error: ${esc(st.error)}</span>`:'');
+  openSheet('sMenu');
+};
+$('mSummary').onclick=()=>closeSheets();
+$('mSync').onclick=async()=>{
+  closeSheets();
+  if(S.demo){ toast('En modo ejemplo no hay Garmin conectado'); return; }
+  try{ await dispatch('sync.yml',{}); toast('Sincronizando con Garmin… (1-3 min)');
+    const before=S.status.lastSync; let n=0;
+    const tick=async()=>{ n++; await loadData(true); if(S.status.lastSync!==before){ toast('Actividades actualizadas'); } else if(n<12) setTimeout(tick,20000); };
+    setTimeout(tick,45000);
+  }catch(e){ toast(e.status===403||e.status===404?'El token no tiene permiso de Actions':'Error: '+e.message); }
+};
+$('mSettings').onclick=()=>{ closeSheets(); openSetup(); };
+
+/* Más (detalle) */
+$('bMore').onclick=()=>openSheet('sMore');
+$('oGarmin').onclick=()=>{ closeSheets(); window.open('https://connect.garmin.com/modern/activity/'+S.cur.id,'_blank'); };
+$('oReload').onclick=()=>{ closeSheets(); openDetailRefill(); };
+function openDetailRefill(){ const a=S.cur; $('dName').value=a.name; $('dNotes').value=a.notes||''; fillGear(a); updateSave(); }
+
+/* Aviso */
+let toastT;
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),2800); }
+
+/* ================================================================
+   Configuración
+================================================================ */
+function openSetup(){
+  const c=S.cfg||{}; $('cfOwner').value=c.owner||''; $('cfRepo').value=c.repo||'garmin-datos'; $('cfToken').value=c.token||'';
+  $('cfMsg').textContent=''; show('vSetup');
+}
+$('cfSave').onclick=async()=>{
+  const c={owner:$('cfOwner').value.trim(), repo:$('cfRepo').value.trim(), token:$('cfToken').value.trim()};
+  if(!c.owner||!c.repo||!c.token){ $('cfMsg').textContent='Rellena los tres campos.'; return; }
+  $('cfMsg').textContent='Comprobando…';
+  const prev=S.cfg; S.cfg=c;
+  try{
+    await gh('contents/data/status.json?ref=main',{raw:true});
+    LS.set('gc_cfg',c); S.demo=false; S.acts=[]; S.tracks={};
+    show('vList'); applyFilter(); await loadData();
+  }catch(e){
+    S.cfg=prev;
+    $('cfMsg').textContent = e.status===404 ? 'No encuentro el repositorio o el token no tiene acceso a él.' : e.status===401 ? 'Token no válido o caducado.' : 'Error: '+e.message;
+  }
+};
+$('cfDemo').onclick=()=>{ startDemo(); };
+
+/* ================================================================
+   Datos de ejemplo
+================================================================ */
+function startDemo(){
+  S.demo=true; S.status={lastSync:new Date().toISOString()};
+  S.gear=[{uuid:'g1',name:'Hoka Mafate Speed 4',kind:'shoes',active:true},{uuid:'g2',name:'Hoka Speedgoat 5',kind:'shoes',active:true},
+    {uuid:'g3',name:'Orbea Oiz M30',kind:'bike',active:true},{uuid:'g4',name:'Salomon Sense Ride 4',kind:'shoes',active:false}];
+  const base=[
+    ['Trail Pico Nevera','trail_running','2025-05-11T08:12',18310,8025,1150,146,1845],
+    ['MTB Sierra Calderona','mountain_biking','2025-05-10T17:45',53280,11902,980,138,2140],
+    ["Trail Serra d'Espadà",'trail_running','2025-05-09T07:02',14120,5468,620,151,1190],
+    ['Trail Aitana','trail_running','2025-05-07T18:23',21470,7533,1020,149,1720],
+    ['Ruta Embalse de Buseo','mountain_biking','2025-05-06T16:10',45670,9679,850,133,1680]];
+  const names=['Trail Garbí','MTB Portaceli','Trail Montdúver','Ruta Turia','Trail Penyagolosa','MTB Sant Espirit','Trail Mondúver','Ruta Xàtiva','Trail Les Rodanes','MTB La Murta','Trail Chulilla','Ruta Albufera'];
+  let t=new Date('2025-05-05T08:00'); const acts=[];
+  base.forEach((b,i)=>acts.push({id:9000-i,name:b[0],type:b[1],start:b[2],dist:b[3],dur:b[4],elev:b[5],hr:b[6],cal:b[7],notes:'',gps:true,gear:[b[1]==='trail_running'?'g1':'g3']}));
+  for(let i=0;i<295;i++){
+    t=new Date(t.getTime()-(1+(i*7%3))*86400000); const run=(i%5)!==1;
+    const n=names[i%names.length], d=run?8000+(i*733%16000):25000+(i*977%40000);
+    acts.push({id:8990-i,name:n,type:run?(i%7===0?'running':'trail_running'):(i%3?'mountain_biking':'road_biking'),
+      start:t.toISOString().slice(0,11)+String(7+(i%11)).padStart(2,'0')+':'+String(i*13%60).padStart(2,'0'),
+      dist:d,dur:Math.round(d/(run?2.6:5.8)),elev:run?200+(i*37%1100):300+(i*53%1200),hr:130+(i%25),cal:Math.round(d/12),notes:'',gps:true,
+      gear:[run?(i%4?'g1':'g2'):'g3']});
+  }
+  S.acts=acts; show('vList'); applyFilter(); renderSub();
+}
+function demoTrack(id){
+  const seed=id%97, c=[39.70+(seed%9)/100,-0.62+(seed%7)/100], pts=[];
+  for(let i=0;i<=240;i++){ const a=i/240*Math.PI*2; const r=0.03*(1+0.18*Math.sin(a*7+seed)+0.08*Math.sin(a*23));
+    pts.push([c[0]+r*Math.sin(a)*0.8, c[1]+r*Math.cos(a)]); }
+  return pts;
+}
+function demoApply(req){
+  const a=S.acts.find(x=>x.id===req.id); if(!a) return;
+  if(req.delete){ S.acts=S.acts.filter(x=>x.id!==req.id); return; }
+  if(req.name!=null) a.name=req.name; if(req.notes!=null) a.notes=req.notes;
+  if(req.gear!=null){ const k=kindOf(a.type); a.gear=a.gear.filter(u=>{const g=gearBy(u);return g&&!kindMatch(g,k);}); if(req.gear!=='none') a.gear.push(req.gear); }
+}
+
+/* ================================================================
+   Arranque
+================================================================ */
+(function init(){
+  if(location.hash==='#demo'){ startDemo(); return; }
+  if(!S.cfg){ openSetup(); return; }
+  const cache=LS.get('gc_data',null);
+  if(cache){ S.acts=cache.acts||[]; S.gear=cache.gear||[]; S.status=cache.status||{}; }
+  show('vList'); applyFilter(); renderSub();
+  loadData();
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !S.demo && S.cfg) loadData(true); });
+})();
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
