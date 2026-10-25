@@ -39,19 +39,20 @@ input,textarea,select{font:inherit;color:inherit}
 .sub{padding:0 20px 6px;font-size:13px;color:var(--muted);text-align:center;min-height:18px}
 
 /* lista */
-.list{padding:0 16px calc(var(--sb) + 24px)}
-.row{display:grid;grid-template-columns:38px 1fr 14px;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.list{padding:0 12px calc(var(--sb) + 24px)}
+.row{display:grid;grid-template-columns:34px 1fr 12px;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
 .row:active{background:#fafafa}
-.tile{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center}
-.tile svg{width:24px;height:24px}
+.tile{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.tile svg{width:22px;height:22px}
 .t-run{background:var(--runbg);color:var(--run)} .t-bike{background:var(--bikebg);color:var(--bike)} .t-other{background:var(--otherbg);color:var(--other)}
 .rname{font-size:17px;font-weight:600;margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.2px}
-.rmeta{display:grid;grid-template-columns:10.2em 4.9em 4.2em auto;overflow:hidden;font-size:min(3.1vw,15.5px);color:#4a4d52;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.1px}
+.rmeta{display:grid;grid-template-columns:10em 4.75em 4.1em auto;overflow:hidden;font-size:min(3.4vw,16.5px);color:#4a4d52;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.1px}
 .rmeta span{overflow:hidden}
 .rmeta i{font-style:normal}
 .rmeta i.tm{margin-left:.45em}
-@media (max-width:370px){.rmeta i.tm{display:none}.rmeta{grid-template-columns:6.8em 4.9em 4.2em auto}}
-.chev{color:#5f6368;width:18px;height:18px}
+@media (max-width:380px){.rmeta{font-size:3.28vw}}
+@media (max-width:370px){.rmeta i.tm{display:none}.rmeta{grid-template-columns:6.7em 4.75em 4.1em auto}}
+.chev{color:#5f6368;width:16px;height:16px}
 .pend{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:6px;vertical-align:middle}
 .empty{padding:60px 24px;text-align:center;color:var(--muted)}
 #sentinel{height:40px}
